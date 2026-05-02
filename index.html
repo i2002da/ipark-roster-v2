@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>현장직원 휴무근무표 v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Bebas+Neue&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#0b0d12;--surface:#111318;--card:#161920;--border:#1e2330;
+  --accent:#f59e0b;--accent2:#3b82f6;--accent3:#10b981;--danger:#ef4444;
+  --warn:#f97316;--text:#e2e8f0;--muted:#64748b;--muted2:#475569;
+  --sat:#1e3a5f;--sun:#3b1f1f;--hol:#2d1f3b;--off:#1a2e1a;--abs:#2e1a1a;
+  --font:'Noto Sans KR',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden}
+
+/* ── HEADER ── */
+header{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 24px;height:60px;display:flex;align-items:center;
+  justify-content:space-between;position:sticky;top:0;z-index:200;
+  box-shadow:0 2px 20px rgba(0,0,0,.4)
+}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:32px;height:32px;background:var(--accent);clip-path:polygon(0 100%,50% 0,100% 100%)}
+.logo-text{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px}
+.logo-sub{font-size:9px;color:var(--muted);letter-spacing:3px;margin-top:-2px}
+.hdr-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sync-badge{
+  display:flex;align-items:center;gap:6px;padding:5px 12px;
+  border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.5px;
+  border:1px solid;transition:all .3s;cursor:default
+}
+.sync-badge.ok{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.4);color:var(--accent3)}
+.sync-badge.err{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.4);color:var(--danger)}
+.sync-badge.loading{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4);color:var(--accent)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── NAV (현장탭) ── */
+nav{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 24px;display:flex;align-items:center;gap:0;overflow-x:auto;
+  position:sticky;top:60px;z-index:190
+}
+.tab{
+  padding:14px 20px;font-size:13px;font-weight:500;cursor:pointer;
+  border-bottom:2px solid transparent;white-space:nowrap;
+  color:var(--muted);transition:all .2s;display:flex;align-items:center;gap:6px
+}
+.tab:hover{color:var(--text);background:rgba(255,255,255,.03)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(245,158,11,.05)}
+.tab-add{
+  padding:10px 16px;margin-left:auto;font-size:12px;cursor:pointer;
+  color:var(--accent2);border:1px dashed rgba(59,130,246,.4);border-radius:6px;
+  background:transparent;transition:all .2s;white-space:nowrap
+}
+.tab-add:hover{background:rgba(59,130,246,.1)}
+
+/* ── TOOLBAR ── */
+.toolbar{
+  padding:12px 24px;display:flex;align-items:center;gap:10px;
+  flex-wrap:wrap;background:rgba(17,19,24,.8);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--border)
+}
+.btn{
+  padding:7px 16px;border-radius:6px;font-size:12px;font-weight:600;
+  cursor:pointer;border:1px solid;transition:all .2s;letter-spacing:.3px;
+  display:flex;align-items:center;gap:6px;white-space:nowrap
+}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#000}
+.btn-primary:hover{background:#d97706;border-color:#d97706}
+.btn-secondary{background:transparent;border-color:var(--border);color:var(--text)}
+.btn-secondary:hover{background:rgba(255,255,255,.05);border-color:var(--muted2)}
+.btn-danger{background:transparent;border-color:rgba(239,68,68,.4);color:var(--danger)}
+.btn-danger:hover{background:rgba(239,68,68,.1)}
+.btn-excel{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.4);color:var(--accent3)}
+.btn-excel:hover{background:rgba(16,185,129,.2)}
+.btn-pdf{background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.4);color:var(--accent2)}
+.btn-pdf:hover{background:rgba(59,130,246,.2)}
+.toolbar-spacer{flex:1}
+
+select.sel{
+  background:var(--card);border:1px solid var(--border);color:var(--text);
+  padding:7px 12px;border-radius:6px;font-size:12px;cursor:pointer;
+  font-family:var(--font)
+}
+
+/* ── MAIN CONTENT ── */
+main{padding:20px 24px}
+
+/* ── NOTICE CARD ── */
+.notice-card{
+  background:var(--card);border:1px solid var(--border);border-radius:10px;
+  padding:16px 20px;margin-bottom:16px
+}
+.notice-card h3{font-size:12px;color:var(--accent);letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.notice-text{
+  width:100%;background:transparent;border:none;color:var(--text);
+  font-size:13px;font-family:var(--font);resize:vertical;min-height:40px;outline:none
+}
+
+/* ── TABLE WRAPPER ── */
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border)}
+table{
+  border-collapse:collapse;font-size:11px;white-space:nowrap;
+  background:var(--card);width:100%
+}
+thead{position:sticky;top:120px;z-index:100}
+th{
+  background:#0f1117;padding:8px 6px;font-weight:600;
+  border:1px solid var(--border);color:var(--muted);
+  letter-spacing:.5px;font-size:10px
+}
+th.day-sat{background:var(--sat);color:#7eb8f5}
+th.day-sun,th.day-hol{background:var(--sun);color:#f87171}
+td{
+  padding:0;border:1px solid var(--border);vertical-align:middle;
+  min-width:28px;height:32px;text-align:center;cursor:pointer;
+  transition:background .15s
+}
+td.col-no{width:40px;min-width:40px;padding:0 8px;cursor:default;color:var(--muted);font-size:10px}
+td.col-div{min-width:70px;padding:0 8px;cursor:default;font-weight:500}
+td.col-name{min-width:80px;padding:0 10px;cursor:default;font-weight:600}
+td.col-remark{min-width:100px;padding:0 6px;cursor:default}
+td.col-remark input{
+  background:transparent;border:none;color:var(--text);font-size:11px;
+  width:100%;outline:none;font-family:var(--font)
+}
+td.day-sat{background:rgba(30,58,95,.3)}
+td.day-sun,td.day-hol{background:rgba(59,31,31,.3)}
+td.day-sat:hover{background:rgba(30,58,95,.6)}
+td.day-sun:hover,td.day-hol:hover{background:rgba(59,31,31,.6)}
+td.off-day{background:var(--off)!important}
+td.off-day::after{content:'휴';color:var(--accent3);font-size:10px;font-weight:700}
+td.abs-day{background:var(--abs)!important}
+td.abs-day::after{content:'결';color:var(--danger);font-size:10px;font-weight:700}
+td.normal-day:hover{background:rgba(255,255,255,.05)}
+
+/* row highlight on hover */
+tr:hover td.col-div,tr:hover td.col-name{color:var(--accent)}
+
+/* ── LEGEND ── */
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:11px;color:var(--muted)}
+.leg{display:flex;align-items:center;gap:6px}
+.leg-box{width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.1)}
+
+/* ── STATS ── */
+.stats-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.stat-card{
+  background:var(--card);border:1px solid var(--border);border-radius:8px;
+  padding:12px 18px;flex:1;min-width:120px
+}
+.stat-card .label{font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:4px}
+.stat-card .value{font-size:22px;font-family:'Bebas Neue',sans-serif;letter-spacing:1px}
+
+/* ── MODAL ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center}
+.overlay.show{display:flex}
+.modal{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:28px;width:440px;max-width:95vw;box-shadow:0 24px 60px rgba(0,0,0,.5)
+}
+.modal h2{font-size:16px;margin-bottom:20px;color:var(--accent)}
+.form-row{margin-bottom:14px}
+.form-row label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;letter-spacing:.5px}
+.form-row input,.form-row select{
+  width:100%;background:var(--card);border:1px solid var(--border);
+  color:var(--text);padding:9px 12px;border-radius:6px;font-size:13px;
+  font-family:var(--font);outline:none;transition:border-color .2s
+}
+.form-row input:focus,.form-row select:focus{border-color:var(--accent)}
+.modal-btns{display:flex;gap:8px;margin-top:20px;justify-content:flex-end}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:24px;right:24px;background:var(--surface);
+  border:1px solid var(--border);border-radius:8px;padding:10px 18px;
+  font-size:12px;z-index:999;transform:translateY(80px);opacity:0;
+  transition:all .3s;pointer-events:none;max-width:320px
+}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{border-color:rgba(16,185,129,.5);color:var(--accent3)}
+.toast.err{border-color:rgba(239,68,68,.5);color:var(--danger)}
+
+/* ── PRINT ── */
+@media print{
+  header,nav,.toolbar,.stats-row,.legend,#addEmpBtn,.tab-add,
+  .btn,.overlay,.toast,.notice-card h3 button{display:none!important}
+  body{background:#fff;color:#000}
+  .table-wrap{border:none}
+  table{font-size:9pt}
+  th,td{border:1px solid #ccc!important;padding:4px!important}
+  td.day-sat{background:#dbeafe!important;-webkit-print-color-adjust:exact}
+  td.day-sun,td.day-hol{background:#fee2e2!important;-webkit-print-color-adjust:exact}
+  td.off-day{background:#dcfce7!important;-webkit-print-color-adjust:exact}
+  td.off-day::after{color:#166534!important}
+  td.abs-day{background:#fee2e2!important;-webkit-print-color-adjust:exact}
+  td.abs-day::after{color:#991b1b!important}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon"></div>
+    <div>
+      <div class="logo-text">IPARK ROSTER</div>
+      <div class="logo-sub">HDC현대산업개발 · 현장직원 휴무근무표</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="sync-badge loading" id="syncBadge"><span class="dot"></span><span id="syncText">연결 중...</span></div>
+    <button class="btn btn-secondary" style="font-size:11px" onclick="openGistSettings()">⚙ 저장소 설정</button>
+  </div>
+</header>
+
+<!-- NAV -->
+<nav id="navBar">
+  <button class="tab-add" onclick="openSiteModal()">＋ 현장 추가</button>
+</nav>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <select class="sel" id="yearSel" onchange="changeMonth()"></select>
+  <select class="sel" id="monthSel" onchange="changeMonth()"></select>
+  <button class="btn btn-secondary" onclick="addEmpModal()">＋ 직원 추가</button>
+  <button class="btn btn-danger" onclick="deleteSite()" id="delSiteBtn">✕ 현장 삭제</button>
+  <div class="toolbar-spacer"></div>
+  <button class="btn btn-excel" onclick="exportExcel()">📊 엑셀 저장</button>
+  <button class="btn btn-pdf" onclick="exportPDF()">🖨 PDF 출력</button>
+  <button class="btn btn-secondary" onclick="syncNow()">↻ 동기화</button>
+</div>
+
+<!-- MAIN -->
+<main id="mainContent">
+  <div class="notice-card">
+    <h3>📢 공지사항 <span style="color:var(--muted);font-weight:400;font-size:10px">(자동저장)</span></h3>
+    <textarea class="notice-text" id="noticeText" placeholder="공지사항을 입력하세요..." rows="2" oninput="debounceSave()"></textarea>
+  </div>
+  <div class="stats-row" id="statsRow"></div>
+  <div class="table-wrap"><table id="mainTable"><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+  <div class="legend">
+    <div class="leg"><div class="leg-box" style="background:var(--sat)"></div>토요일</div>
+    <div class="leg"><div class="leg-box" style="background:var(--sun)"></div>일요일·공휴일</div>
+    <div class="leg"><div class="leg-box" style="background:var(--off)"></div>휴무 (좌클릭)</div>
+    <div class="leg"><div class="leg-box" style="background:var(--abs)"></div>현장미근무 (우클릭)</div>
+  </div>
+</main>
+
+<!-- 현장 추가 모달 -->
+<div class="overlay" id="siteModal">
+  <div class="modal">
+    <h2>📍 현장 추가</h2>
+    <div class="form-row"><label>현장명</label><input id="siteNameInput" placeholder="예) 천안 아이파크시티 7단지"></div>
+    <div class="form-row"><label>약칭</label><input id="siteShortInput" placeholder="예) 7단지" maxlength="8"></div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal('siteModal')">취소</button>
+      <button class="btn btn-primary" onclick="addSite()">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- 직원 추가 모달 -->
+<div class="overlay" id="empModal">
+  <div class="modal">
+    <h2>👤 직원 추가</h2>
+    <div class="form-row"><label>구분 (직책)</label><input id="empDivInput" placeholder="예) 소장, 공무, 안전관리자"></div>
+    <div class="form-row"><label>성명</label><input id="empNameInput" placeholder="홍길동"></div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal('empModal')">취소</button>
+      <button class="btn btn-primary" onclick="addEmployee()">추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- Gist 설정 모달 -->
+<div class="overlay" id="gistModal">
+  <div class="modal">
+    <h2>☁ GitHub Gist 저장소 설정</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.7">
+      GitHub Personal Access Token을 입력하면 데이터가<br>Gist에 실시간 저장되어 모든 기기에서 공유됩니다.
+    </p>
+    <div class="form-row"><label>GitHub Token (gist scope 필요)</label><input type="password" id="gistToken" placeholder="ghp_xxxxx"></div>
+    <div class="form-row"><label>Gist ID (비워두면 자동 생성)</label><input id="gistId" placeholder="자동 생성"></div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal('gistModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveGistSettings()">저장 및 연결</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// 1. 상수 & 공휴일
+// ═══════════════════════════════════════════════════════════
+const KOR_HOLIDAYS = {
+  '01-01':true,'03-01':true,'05-05':true,'06-06':true,
+  '08-15':true,'10-03':true,'10-09':true,'12-25':true
+};
+
+// ═══════════════════════════════════════════════════════════
+// 2. 초기 상태 (JSON 구조)
+// ═══════════════════════════════════════════════════════════
+let S = {
+  sites: [
+    {id:'s1', name:'천안 아이파크시티 5단지', short:'5단지'},
+    {id:'s2', name:'천안 아이파크시티 6단지', short:'6단지'},
+    {id:'s3', name:'천안부성 3~6단지 부지조성공사', short:'부성'}
+  ],
+  employees: {
+    s1:[
+      {id:'e1',div:'소장',name:'김현장',remark:''},
+      {id:'e2',div:'공무',name:'이공무',remark:''},
+      {id:'e3',div:'안전',name:'박안전',remark:''}
+    ],
+    s2:[
+      {id:'e4',div:'소장',name:'최현장',remark:''},
+      {id:'e5',div:'공무',name:'정공무',remark:''}
+    ],
+    s3:[
+      {id:'e6',div:'소장',name:'한현장',remark:''},
+      {id:'e7',div:'안전',name:'오안전',remark:''}
+    ]
+  },
+  offDays: {},   // {siteId: {empId: {YYYY-MM-DD: true}}}
+  absDays: {},   // {siteId: {empId: {YYYY-MM-DD: true}}}
+  notices: {},   // {siteId: string}
+  customHolidays: {},  // {YYYY-MM-DD: true}
+  meta: {updatedAt:'', version:2}
+};
+
+let curSite = 's1';
+let curYear = new Date().getFullYear();
+let curMonth = new Date().getMonth() + 1;
+let saveTimer = null;
+
+// ═══════════════════════════════════════════════════════════
+// 3. Gist 동기화
+// ═══════════════════════════════════════════════════════════
+let GIST_TOKEN = localStorage.getItem('ir_gist_token') || '';
+let GIST_ID    = localStorage.getItem('ir_gist_id')    || '';
+const GIST_FILE = 'ipark-roster-data.json';
+
+function setSyncBadge(type, text){
+  const b = document.getElementById('syncBadge');
+  b.className = 'sync-badge ' + type;
+  document.getElementById('syncText').textContent = text;
+}
+
+async function loadFromGist(){
+  if(!GIST_TOKEN || !GIST_ID){
+    setSyncBadge('err','Gist 미설정 (로컬)');
+    loadLocal(); return;
+  }
+  setSyncBadge('loading','불러오는 중...');
+  try{
+    const r = await fetch(`https://api.github.com/gists/${GIST_ID}`,{
+      headers:{Authorization:`token ${GIST_TOKEN}`,Accept:'application/vnd.github.v3+json'}
+    });
+    if(!r.ok) throw new Error(r.status);
+    const g = await r.json();
+    const raw = g.files[GIST_FILE]?.content;
+    if(raw){ S = JSON.parse(raw); }
+    setSyncBadge('ok','실시간 공유 ON');
+    showToast('데이터를 불러왔습니다','ok');
+  }catch(e){
+    setSyncBadge('err','연결 실패 (로컬)');
+    loadLocal();
+  }
+  render();
+}
+
+async function saveToGist(){
+  // 항상 로컬에도 저장
+  localStorage.setItem('ir_state', JSON.stringify(S));
+
+  if(!GIST_TOKEN || !GIST_ID) return;
+  S.meta.updatedAt = new Date().toISOString();
+  const body = {
+    description:'ipark-roster 현장직원 휴무근무표 데이터',
+    files:{ [GIST_FILE]: { content: JSON.stringify(S, null, 2) } }
+  };
+  try{
+    const r = await fetch(`https://api.github.com/gists/${GIST_ID}`,{
+      method:'PATCH',
+      headers:{Authorization:`token ${GIST_TOKEN}`,Accept:'application/vnd.github.v3+json','Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    if(!r.ok) throw new Error(r.status);
+    setSyncBadge('ok','저장됨 ✓');
+    setTimeout(()=>setSyncBadge('ok','실시간 공유 ON'),2000);
+  }catch(e){
+    setSyncBadge('err','저장 실패');
+  }
+}
+
+async function createGist(token){
+  const body = {
+    description:'ipark-roster 현장직원 휴무근무표 데이터',
+    public:false,
+    files:{ [GIST_FILE]: { content: JSON.stringify(S, null, 2) } }
+  };
+  const r = await fetch('https://api.github.com/gists',{
+    method:'POST',
+    headers:{Authorization:`token ${token}`,Accept:'application/vnd.github.v3+json','Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  if(!r.ok) throw new Error(r.status);
+  return (await r.json()).id;
+}
+
+function loadLocal(){
+  const saved = localStorage.getItem('ir_state');
+  if(saved) try{ S = JSON.parse(saved); }catch(e){}
+}
+
+function debounceSave(){
+  // 공지사항 텍스트 반영
+  S.notices[curSite] = document.getElementById('noticeText').value;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveToGist, 800);
+}
+
+function syncNow(){ loadFromGist(); }
+
+function openGistSettings(){
+  document.getElementById('gistToken').value = GIST_TOKEN;
+  document.getElementById('gistId').value = GIST_ID;
+  document.getElementById('gistModal').classList.add('show');
+}
+
+async function saveGistSettings(){
+  const token = document.getElementById('gistToken').value.trim();
+  const gid   = document.getElementById('gistId').value.trim();
+  if(!token){ showToast('토큰을 입력해주세요','err'); return; }
+  GIST_TOKEN = token;
+  localStorage.setItem('ir_gist_token', token);
+  if(gid){
+    GIST_ID = gid;
+    localStorage.setItem('ir_gist_id', gid);
+  } else {
+    // Gist 자동 생성
+    try{
+      const newId = await createGist(token);
+      GIST_ID = newId;
+      localStorage.setItem('ir_gist_id', newId);
+      document.getElementById('gistId').value = newId;
+      showToast(`Gist 생성됨: ${newId}`, 'ok');
+    }catch(e){ showToast('Gist 생성 실패: ' + e.message,'err'); return; }
+  }
+  closeModal('gistModal');
+  await loadFromGist();
+}
+
+// ═══════════════════════════════════════════════════════════
+// 4. 날짜 헬퍼
+// ═══════════════════════════════════════════════════════════
+function daysInMonth(y,m){ return new Date(y,m,0).getDate(); }
+function dayOfWeek(y,m,d){ return new Date(y,m-1,d).getDay(); }
+function isHoliday(y,m,d){
+  const mm = String(m).padStart(2,'0'), dd = String(d).padStart(2,'0');
+  const key = `${mm}-${dd}`;
+  const full = `${y}-${mm}-${dd}`;
+  return KOR_HOLIDAYS[key] || S.customHolidays[full];
+}
+function dateKey(y,m,d){
+  return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// 5. 렌더링
+// ═══════════════════════════════════════════════════════════
+function buildYearMonth(){
+  const ySel = document.getElementById('yearSel');
+  const mSel = document.getElementById('monthSel');
+  if(!ySel.options.length){
+    const y0 = new Date().getFullYear();
+    for(let y=y0-1;y<=y0+2;y++) ySel.add(new Object(new Option(y+'년',y)));
+    for(let m=1;m<=12;m++) mSel.add(new Object(new Option(m+'월',m)));
+  }
+  ySel.value = curYear; mSel.value = curMonth;
+}
+
+function changeMonth(){
+  curYear  = +document.getElementById('yearSel').value;
+  curMonth = +document.getElementById('monthSel').value;
+  renderTable();
+}
+
+function renderNav(){
+  const nav = document.getElementById('navBar');
+  // 기존 탭 제거
+  nav.querySelectorAll('.tab').forEach(t=>t.remove());
+  const addBtn = nav.querySelector('.tab-add');
+  S.sites.forEach(site=>{
+    const t = document.createElement('button');
+    t.className = 'tab' + (site.id===curSite?' active':'');
+    t.innerHTML = `<span>${site.short}</span>`;
+    t.title = site.name;
+    t.onclick = ()=>{ curSite=site.id; render(); };
+    nav.insertBefore(t, addBtn);
+  });
+}
+
+function renderStats(){
+  const emps = (S.employees[curSite]||[]);
+  const days  = daysInMonth(curYear,curMonth);
+  let totalWork=0, totalOff=0, totalAbs=0;
+  emps.forEach(e=>{
+    for(let d=1;d<=days;d++){
+      const k = dateKey(curYear,curMonth,d);
+      const dw = dayOfWeek(curYear,curMonth,d);
+      const isWeekend = dw===0||dw===6||isHoliday(curYear,curMonth,d);
+      const off = S.offDays[curSite]?.[e.id]?.[k];
+      const abs = S.absDays[curSite]?.[e.id]?.[k];
+      if(abs) totalAbs++;
+      else if(off) totalOff++;
+      else if(!isWeekend) totalWork++;
+    }
+  });
+  document.getElementById('statsRow').innerHTML=`
+    <div class="stat-card"><div class="label">총 직원</div><div class="value" style="color:var(--accent2)">${emps.length}</div></div>
+    <div class="stat-card"><div class="label">근무일 합계</div><div class="value" style="color:var(--accent3)">${totalWork}</div></div>
+    <div class="stat-card"><div class="label">휴무일 합계</div><div class="value" style="color:var(--accent)">${totalOff}</div></div>
+    <div class="stat-card"><div class="label">현장미근무</div><div class="value" style="color:var(--danger)">${totalAbs}</div></div>
+  `;
+}
+
+function renderTable(){
+  const y=curYear, mo=curMonth;
+  const days = daysInMonth(y,mo);
+  const emps = S.employees[curSite]||[];
+  const thead = document.getElementById('thead');
+  const tbody  = document.getElementById('tbody');
+
+  // THEAD
+  let th1='<tr><th rowspan="2">No</th><th rowspan="2">구분</th><th rowspan="2">성명</th>';
+  let th2='<tr>';
+  const DOW_KR=['일','월','화','수','목','금','토'];
+  for(let d=1;d<=days;d++){
+    const dw=dayOfWeek(y,mo,d);
+    const hol=isHoliday(y,mo,d);
+    const cls=dw===6?'day-sat':(dw===0||hol?'day-sun':'');
+    th1+=`<th class="${cls}">${d}</th>`;
+    th2+=`<th class="${cls}">${DOW_KR[dw]}</th>`;
+  }
+  th1+='<th rowspan="2">비고</th><th rowspan="2" style="min-width:50px">휴무수</th></tr>';
+  th2+='</tr>';
+  thead.innerHTML=th1+th2;
+
+  // TBODY
+  let html='';
+  emps.forEach((e,i)=>{
+    let offCount=0;
+    let row=`<tr>
+      <td class="col-no">${i+1}</td>
+      <td class="col-div" ondblclick="editEmpField('${e.id}','div',this)">${e.div}</td>
+      <td class="col-name" ondblclick="editEmpField('${e.id}','name',this)">${e.name}</td>`;
+    for(let d=1;d<=days;d++){
+      const k=dateKey(y,mo,d);
+      const dw=dayOfWeek(y,mo,d);
+      const hol=isHoliday(y,mo,d);
+      const isOff=S.offDays[curSite]?.[e.id]?.[k];
+      const isAbs=S.absDays[curSite]?.[e.id]?.[k];
+      let cls='';
+      if(isAbs) cls='abs-day';
+      else if(isOff){ cls='off-day'; offCount++; }
+      else if(dw===6) cls='day-sat normal-day';
+      else if(dw===0||hol) cls='day-sun normal-day';
+      else cls='normal-day';
+      row+=`<td class="${cls}" onclick="toggleOff('${curSite}','${e.id}','${k}')" oncontextmenu="toggleAbs(event,'${curSite}','${e.id}','${k}')"></td>`;
+    }
+    row+=`<td class="col-remark"><input value="${e.remark||''}" onchange="updateRemark('${e.id}',this.value)" placeholder=""></td>`;
+    row+=`<td style="text-align:center;font-weight:700;color:var(--accent)">${offCount}</td>`;
+    row+='</tr>';
+    html+=row;
+  });
+  tbody.innerHTML=html;
+  renderStats();
+}
+
+function render(){
+  renderNav();
+  buildYearMonth();
+  document.getElementById('noticeText').value = S.notices[curSite]||'';
+  renderTable();
+}
+
+// ═══════════════════════════════════════════════════════════
+// 6. 토글 (좌클릭=휴무, 우클릭=현장미근무)
+// ═══════════════════════════════════════════════════════════
+function toggleOff(sid,eid,k){
+  if(!S.offDays[sid]) S.offDays[sid]={};
+  if(!S.offDays[sid][eid]) S.offDays[sid][eid]={};
+  // 미근무 있으면 해제
+  if(S.absDays[sid]?.[eid]?.[k]){ delete S.absDays[sid][eid][k]; debounceSave(); renderTable(); return; }
+  S.offDays[sid][eid][k] ? delete S.offDays[sid][eid][k] : (S.offDays[sid][eid][k]=true);
+  debounceSave(); renderTable();
+}
+function toggleAbs(ev,sid,eid,k){
+  ev.preventDefault();
+  if(!S.absDays[sid]) S.absDays[sid]={};
+  if(!S.absDays[sid][eid]) S.absDays[sid][eid]={};
+  if(S.offDays[sid]?.[eid]?.[k]) delete S.offDays[sid][eid][k];
+  S.absDays[sid][eid][k] ? delete S.absDays[sid][eid][k] : (S.absDays[sid][eid][k]=true);
+  debounceSave(); renderTable();
+}
+function updateRemark(eid, val){
+  const site = S.employees[curSite];
+  const emp = site?.find(e=>e.id===eid);
+  if(emp){ emp.remark=val; debounceSave(); }
+}
+
+// ═══════════════════════════════════════════════════════════
+// 7. 현장 CRUD
+// ═══════════════════════════════════════════════════════════
+function openSiteModal(){ document.getElementById('siteModal').classList.add('show'); }
+function addSite(){
+  const name=document.getElementById('siteNameInput').value.trim();
+  const short=document.getElementById('siteShortInput').value.trim();
+  if(!name||!short){ showToast('현장명과 약칭을 입력해주세요','err'); return; }
+  const id='s'+Date.now();
+  S.sites.push({id,name,short});
+  S.employees[id]=[];
+  S.offDays[id]={};
+  S.absDays[id]={};
+  S.notices[id]='';
+  curSite=id;
+  closeModal('siteModal');
+  document.getElementById('siteNameInput').value='';
+  document.getElementById('siteShortInput').value='';
+  debounceSave(); render();
+  showToast('현장이 추가됐습니다','ok');
+}
+function deleteSite(){
+  if(S.sites.length<=1){ showToast('최소 1개 현장은 필요합니다','err'); return; }
+  const site=S.sites.find(s=>s.id===curSite);
+  if(!confirm(`"${site?.name}" 현장을 삭제하시겠습니까?\n직원 데이터도 모두 삭제됩니다.`)) return;
+  S.sites=S.sites.filter(s=>s.id!==curSite);
+  delete S.employees[curSite];
+  delete S.offDays[curSite];
+  delete S.absDays[curSite];
+  delete S.notices[curSite];
+  curSite=S.sites[0].id;
+  debounceSave(); render();
+  showToast('현장이 삭제됐습니다','ok');
+}
+
+// ═══════════════════════════════════════════════════════════
+// 8. 직원 CRUD
+// ═══════════════════════════════════════════════════════════
+function addEmpModal(){ document.getElementById('empModal').classList.add('show'); }
+function addEmployee(){
+  const div=document.getElementById('empDivInput').value.trim();
+  const name=document.getElementById('empNameInput').value.trim();
+  if(!div||!name){ showToast('구분과 성명을 입력해주세요','err'); return; }
+  if(!S.employees[curSite]) S.employees[curSite]=[];
+  const id='e'+Date.now();
+  S.employees[curSite].push({id,div,name,remark:''});
+  closeModal('empModal');
+  document.getElementById('empDivInput').value='';
+  document.getElementById('empNameInput').value='';
+  debounceSave(); renderTable();
+  showToast('직원이 추가됐습니다','ok');
+}
+function editEmpField(eid,field,td){
+  const curVal=td.textContent;
+  const inp=document.createElement('input');
+  inp.value=curVal;
+  inp.style.cssText='width:100%;background:transparent;border:none;color:inherit;font:inherit;outline:none;padding:0 8px';
+  td.textContent='';
+  td.appendChild(inp);
+  inp.focus();
+  const done=()=>{
+    const newVal=inp.value.trim()||curVal;
+    const emp=S.employees[curSite]?.find(e=>e.id===eid);
+    if(emp){ emp[field]=newVal; debounceSave(); }
+    td.textContent=newVal;
+  };
+  inp.onblur=done;
+  inp.onkeydown=e=>{ if(e.key==='Enter') inp.blur(); };
+}
+
+// ═══════════════════════════════════════════════════════════
+// 9. 엑셀 내보내기 (SheetJS)
+// ═══════════════════════════════════════════════════════════
+function exportExcel(){
+  const y=curYear, mo=curMonth;
+  const days=daysInMonth(y,mo);
+  const emps=S.employees[curSite]||[];
+  const site=S.sites.find(s=>s.id===curSite);
+  const DOW_KR=['일','월','화','수','목','금','토'];
+
+  const wb = XLSX.utils.book_new();
+
+  // ─ 헤더행 ─
+  const header1=['No','구분','성명'];
+  const header2=['','',''];
+  for(let d=1;d<=days;d++){
+    header1.push(String(d));
+    header2.push(DOW_KR[dayOfWeek(y,mo,d)]);
+  }
+  header1.push('비고','휴무수');
+  header2.push('','');
+
+  const aoa=[header1, header2];
+
+  // ─ 데이터행 ─
+  emps.forEach((e,i)=>{
+    const row=[i+1, e.div, e.name];
+    let offCount=0;
+    for(let d=1;d<=days;d++){
+      const k=dateKey(y,mo,d);
+      const isOff=S.offDays[curSite]?.[e.id]?.[k];
+      const isAbs=S.absDays[curSite]?.[e.id]?.[k];
+      if(isAbs){ row.push('결'); }
+      else if(isOff){ row.push('휴'); offCount++; }
+      else row.push('');
+    }
+    row.push(e.remark||'', offCount);
+    aoa.push(row);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // 열 너비
+  const colW=[{wch:5},{wch:10},{wch:10}];
+  for(let d=1;d<=days;d++) colW.push({wch:4});
+  colW.push({wch:15},{wch:6});
+  ws['!cols']=colW;
+
+  // 셀 스타일 (헤더 배경 - SheetJS CE 한계로 기본 스타일만)
+  // 토/일 열 색상은 Pro 버전 필요하므로 조건부 서식으로 대체
+  ws['!merges']=[];
+
+  // 공지사항 시트
+  const notice=S.notices[curSite]||'';
+  const wsNotice=XLSX.utils.aoa_to_sheet([['공지사항'],[ notice ]]);
+
+  XLSX.utils.book_append_sheet(wb, ws, `${y}년${mo}월`);
+  XLSX.utils.book_append_sheet(wb, wsNotice, '공지사항');
+
+  const fileName=`${site?.short||'현장'}_휴무근무표_${y}년${mo}월.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  showToast(`엑셀 저장: ${fileName}`, 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════
+// 10. PDF 출력
+// ═══════════════════════════════════════════════════════════
+function exportPDF(){
+  const site=S.sites.find(s=>s.id===curSite);
+  document.title=`${site?.name||''} 휴무근무표 ${curYear}년${curMonth}월`;
+  window.print();
+  setTimeout(()=>document.title='현장직원 휴무근무표 v2',1000);
+}
+
+// ═══════════════════════════════════════════════════════════
+// 11. UI 헬퍼
+// ═══════════════════════════════════════════════════════════
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('show')}));
+
+let toastTimer=null;
+function showToast(msg, type='ok'){
+  clearTimeout(toastTimer);
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+type;
+  toastTimer=setTimeout(()=>t.className='toast',2800);
+}
+
+// ═══════════════════════════════════════════════════════════
+// 12. 초기화
+// ═══════════════════════════════════════════════════════════
+window.onload=async()=>{
+  buildYearMonth();
+  await loadFromGist();
+  render();
+};
+</script>
+</body>
+</html>
